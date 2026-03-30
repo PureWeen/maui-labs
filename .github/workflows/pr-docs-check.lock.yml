@@ -26,7 +26,7 @@
 # needed on dotnet/docs-maui. If updates are needed, it opens a draft PR directly
 # on docs-maui. If not, it comments on the source PR explaining why.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"20babf266ed75cfc4e808a20a5dd7efd452a419d4505e1e6e07fb1461312231e","compiler_version":"v0.53.5"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"59f14757a5f3aad0f61c1352e5ae5553187f7ef292f0b699014a557722550480","compiler_version":"v0.53.5"}
 
 name: "PR Documentation Check"
 "on":
@@ -337,9 +337,9 @@ jobs:
           (github.event.pull_request) || (github.event.issue.pull_request)
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.MAUI_BOT_TOKEN }}
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.MAUI_BOT_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -355,6 +355,7 @@ jobs:
         env:
           GH_AW_GITHUB_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           GH_AW_GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN }}
+          CUSTOM_GITHUB_TOKEN: ${{ secrets.MAUI_BOT_TOKEN }}
         with:
           script: |
             const determineAutomaticLockdown = require('/opt/gh-aw/actions/determine_automatic_lockdown.cjs');
@@ -712,7 +713,7 @@ jobs:
           GH_AW_SAFE_OUTPUTS_API_KEY: ${{ steps.safe-outputs-start.outputs.api_key }}
           GH_AW_SAFE_OUTPUTS_PORT: ${{ steps.safe-outputs-start.outputs.port }}
           GITHUB_MCP_LOCKDOWN: ${{ steps.determine-automatic-lockdown.outputs.lockdown == 'true' && '1' || '0' }}
-          GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_MCP_SERVER_TOKEN: ${{ secrets.MAUI_BOT_TOKEN }}
         run: |
           set -eo pipefail
           mkdir -p /tmp/gh-aw/mcp-config
@@ -786,7 +787,7 @@ jobs:
           GH_AW_SAFE_OUTPUTS: ${{ env.GH_AW_SAFE_OUTPUTS }}
           GITHUB_API_URL: ${{ github.api_url }}
           GITHUB_HEAD_REF: ${{ github.head_ref }}
-          GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_MCP_SERVER_TOKEN: ${{ secrets.MAUI_BOT_TOKEN }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_STEP_SUMMARY: ${{ env.GITHUB_STEP_SUMMARY }}
@@ -845,11 +846,11 @@ jobs:
             const { main } = require('/opt/gh-aw/actions/redact_secrets.cjs');
             await main();
         env:
-          GH_AW_SECRET_NAMES: 'COPILOT_GITHUB_TOKEN,GH_AW_GITHUB_MCP_SERVER_TOKEN,GH_AW_GITHUB_TOKEN,GITHUB_TOKEN'
+          GH_AW_SECRET_NAMES: 'COPILOT_GITHUB_TOKEN,GH_AW_GITHUB_MCP_SERVER_TOKEN,GH_AW_GITHUB_TOKEN,MAUI_BOT_TOKEN'
           SECRET_COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           SECRET_GH_AW_GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN }}
           SECRET_GH_AW_GITHUB_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
-          SECRET_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SECRET_MAUI_BOT_TOKEN: ${{ secrets.MAUI_BOT_TOKEN }}
       - name: Upload Safe Outputs
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
@@ -1098,7 +1099,7 @@ jobs:
           GH_AW_NOOP_MAX: "1"
           GH_AW_WORKFLOW_NAME: "PR Documentation Check"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.MAUI_BOT_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -1111,7 +1112,7 @@ jobs:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
           GH_AW_WORKFLOW_NAME: "PR Documentation Check"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.MAUI_BOT_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -1134,7 +1135,7 @@ jobs:
           GH_AW_GROUP_REPORTS: "false"
           GH_AW_TIMEOUT_MINUTES: "15"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.MAUI_BOT_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -1151,7 +1152,7 @@ jobs:
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
           GH_AW_NOOP_REPORT_AS_ISSUE: "true"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.MAUI_BOT_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -1165,7 +1166,7 @@ jobs:
           GH_AW_WORKFLOW_NAME: "PR Documentation Check"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.MAUI_BOT_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -1256,7 +1257,7 @@ jobs:
         with:
           repository: dotnet/docs-maui
           ref: ${{ github.base_ref || github.event.pull_request.base.ref || github.ref_name || github.event.repository.default_branch }}
-          token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.MAUI_BOT_TOKEN }}
           persist-credentials: false
           fetch-depth: 1
       - name: Configure Git credentials
@@ -1264,7 +1265,7 @@ jobs:
         env:
           REPO_NAME: "dotnet/docs-maui"
           SERVER_URL: ${{ github.server_url }}
-          GIT_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GIT_TOKEN: ${{ secrets.MAUI_BOT_TOKEN }}
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
@@ -1284,7 +1285,7 @@ jobs:
           GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"hide_older_comments\":true,\"max\":1},\"create_pull_request\":{\"draft\":true,\"expires\":30,\"labels\":[\"docs-from-code\"],\"max\":1,\"max_patch_size\":1024,\"target-repo\":\"dotnet/docs-maui\",\"title_prefix\":\"[maui-labs] \"},\"missing_data\":{},\"missing_tool\":{}}"
           GH_AW_CI_TRIGGER_TOKEN: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.MAUI_BOT_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
