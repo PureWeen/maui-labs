@@ -51,19 +51,11 @@ network:
 tools:
   github:
     toolsets: [repos, issues, pull_requests]
-    github-app:
-      app-id: ${{ vars.DOCS_APP_ID }}
-      private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
-      owner: "dotnet"
-      repositories: ["docs-maui"]
+    github-token: ${{ secrets.MAUI_BOT_TOKEN }}
   web-fetch:
 
 safe-outputs:
-  github-app:
-    app-id: ${{ vars.DOCS_APP_ID }}
-    private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
-    owner: "dotnet"
-    repositories: ["docs-maui"]
+  github-token: ${{ secrets.MAUI_BOT_TOKEN }}
   create-pull-request:
     title-prefix: "[maui-labs] "
     labels: [docs-from-code]
