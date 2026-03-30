@@ -51,11 +51,9 @@ network:
 tools:
   github:
     toolsets: [repos, issues, pull_requests]
-    github-token: ${{ secrets.MAUI_BOT_TOKEN }}
   web-fetch:
 
 safe-outputs:
-  github-token: ${{ secrets.MAUI_BOT_TOKEN }}
   create-pull-request:
     title-prefix: "[maui-labs] "
     labels: [docs-from-code]
