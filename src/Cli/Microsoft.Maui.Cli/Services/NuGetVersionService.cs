@@ -66,7 +66,7 @@ public class NuGetVersionService : INuGetVersionService
 		bool includePrereleases, CancellationToken cancellationToken = default)
 	{
 		var feedUrl = GetFeedUrl(channel);
-		var cache = new SourceCacheContext();
+		using var cache = new SourceCacheContext();
 		var repository = Repository.Factory.GetCoreV3(feedUrl);
 		var resource = await repository.GetResourceAsync<FindPackageByIdResource>(cancellationToken);
 
@@ -89,6 +89,6 @@ public class NuGetVersionService : INuGetVersionService
 			results = results.Where(v => !v.IsPrerelease);
 		}
 
-		return results.ToList();
+		return results.OrderBy(v => v).ToList();
 	}
 }

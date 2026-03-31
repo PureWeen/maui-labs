@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 
@@ -14,7 +15,9 @@ public record MauiProjectVersionInfo(
 	string ProjectPath,
 	string? ControlsVersion,
 	string? CompatibilityVersion,
-	string? ResolvedVersion);
+	string? ResolvedVersion,
+	bool HasControlsReference,
+	bool HasCompatibilityReference);
 
 /// <summary>
 /// Service for reading and updating MAUI package versions in project files.
@@ -38,8 +41,10 @@ public interface IProjectVersionService
 
 	/// <summary>
 	/// Installs a package from a specific feed using dotnet add package.
+	/// Only updates packages already referenced in the project.
 	/// </summary>
-	Task InstallFromFeedAsync(string projectPath, string version, string feedUrl, CancellationToken cancellationToken = default);
+	Task InstallFromFeedAsync(string projectPath, string version, string feedUrl,
+		bool hasCompatibility, CancellationToken cancellationToken = default);
 
 	/// <summary>
 	/// Creates or updates a NuGet.config with the specified feed.
@@ -76,6 +81,8 @@ public partial class ProjectVersionService : IProjectVersionService
 
 		string? controlsVersion = null;
 		string? compatVersion = null;
+		bool hasControls = false;
+		bool hasCompat = false;
 
 		if (nodes is not null)
 		{
@@ -85,27 +92,39 @@ public partial class ProjectVersionService : IProjectVersionService
 				var version = node.Attributes?["Version"]?.Value;
 
 				if (string.Equals(include, "Microsoft.Maui.Controls", StringComparison.OrdinalIgnoreCase))
+				{
+					hasControls = true;
+					// Version may be null when using implicit versioning (central package management)
 					controlsVersion = version;
+				}
 				else if (string.Equals(include, "Microsoft.Maui.Controls.Compatibility", StringComparison.OrdinalIgnoreCase))
+				{
+					hasCompat = true;
 					compatVersion = version;
+				}
 			}
 		}
 
-		// Resolve $(MauiVersion) if used
+		// Resolve $(MauiVersion) or implicit versions via workload info
 		string? resolvedVersion = null;
-		if (controlsVersion == MauiVersionVariable || compatVersion == MauiVersionVariable)
+		if (controlsVersion == MauiVersionVariable || compatVersion == MauiVersionVariable
+			|| (hasControls && controlsVersion is null))
 		{
 			resolvedVersion = await ResolveMauiVersionFromWorkloadAsync(cancellationToken);
 		}
 
-		return new MauiProjectVersionInfo(projectPath, controlsVersion, compatVersion, resolvedVersion);
+		return new MauiProjectVersionInfo(projectPath, controlsVersion, compatVersion,
+			resolvedVersion, hasControls, hasCompat);
 	}
 
 	/// <inheritdoc />
 	public async Task UpdateVersionAsync(string projectPath, string version, CancellationToken cancellationToken = default)
 	{
-		var lines = await File.ReadAllLinesAsync(projectPath, cancellationToken);
+		// Read the raw content to preserve original encoding and line endings
+		var content = await File.ReadAllTextAsync(projectPath, cancellationToken);
+		var lines = content.Split('\n');
 
+		bool anyUpdated = false;
 		for (int i = 0; i < lines.Length; i++)
 		{
 			if (lines[i].Contains("<PackageReference Include=\"Microsoft.Maui.Controls\"", StringComparison.OrdinalIgnoreCase) ||
@@ -115,38 +134,37 @@ public partial class ProjectVersionService : IProjectVersionService
 				if (match.Success)
 				{
 					lines[i] = lines[i].Replace(match.Groups[1].Value, version);
+					anyUpdated = true;
 				}
+				// If no Version attribute exists, the project uses central package management
+				// and the version is controlled by Directory.Packages.props — skip silently
 			}
 		}
 
-		await File.WriteAllLinesAsync(projectPath, lines, cancellationToken);
+		if (anyUpdated)
+		{
+			await File.WriteAllTextAsync(projectPath, string.Join('\n', lines), cancellationToken);
+		}
 
-		// Restore after version update
-		using var process = new Process();
-		process.StartInfo.FileName = "dotnet";
-		process.StartInfo.Arguments = $"restore \"{projectPath}\"";
-		process.StartInfo.UseShellExecute = false;
-		process.Start();
-		await process.WaitForExitAsync(cancellationToken);
+		await RunDotnetAsync($"restore \"{projectPath}\"", cancellationToken);
 	}
 
 	/// <inheritdoc />
-	public async Task InstallFromFeedAsync(string projectPath, string version, string feedUrl, CancellationToken cancellationToken = default)
+	public async Task InstallFromFeedAsync(string projectPath, string version, string feedUrl,
+		bool hasCompatibility, CancellationToken cancellationToken = default)
 	{
-		// Use dotnet add package which handles feed source resolution
-		using var controlsProcess = new Process();
-		controlsProcess.StartInfo.FileName = "dotnet";
-		controlsProcess.StartInfo.Arguments = $"add \"{projectPath}\" package Microsoft.Maui.Controls -v {version} -s {feedUrl}";
-		controlsProcess.StartInfo.UseShellExecute = false;
-		controlsProcess.Start();
-		await controlsProcess.WaitForExitAsync(cancellationToken);
+		// Always update Controls (required for all MAUI projects)
+		await RunDotnetAsync(
+			$"add \"{projectPath}\" package Microsoft.Maui.Controls -v {version} -s {feedUrl}",
+			cancellationToken);
 
-		using var compatProcess = new Process();
-		compatProcess.StartInfo.FileName = "dotnet";
-		compatProcess.StartInfo.Arguments = $"add \"{projectPath}\" package Microsoft.Maui.Controls.Compatibility -v {version} -s {feedUrl}";
-		compatProcess.StartInfo.UseShellExecute = false;
-		compatProcess.Start();
-		await compatProcess.WaitForExitAsync(cancellationToken);
+		// Only update Compatibility if the project already references it
+		if (hasCompatibility)
+		{
+			await RunDotnetAsync(
+				$"add \"{projectPath}\" package Microsoft.Maui.Controls.Compatibility -v {version} -s {feedUrl}",
+				cancellationToken);
+		}
 	}
 
 	/// <inheritdoc />
@@ -158,29 +176,55 @@ public partial class ProjectVersionService : IProjectVersionService
 
 		if (!File.Exists(nugetConfigPath) && !File.Exists(nugetConfigPathAlt))
 		{
-			using var createProcess = new Process();
-			createProcess.StartInfo.FileName = "dotnet";
-			createProcess.StartInfo.Arguments = $"new nugetconfig -o \"{outputDirectory}\"";
-			createProcess.StartInfo.UseShellExecute = false;
-			createProcess.Start();
-			await createProcess.WaitForExitAsync(cancellationToken);
+			await RunDotnetAsync($"new nugetconfig -o \"{outputDirectory}\"", cancellationToken);
 		}
 
 		var configPath = File.Exists(nugetConfigPath) ? nugetConfigPath : nugetConfigPathAlt;
+		var fullPath = Path.GetFullPath(configPath);
 
-		using var addSourceProcess = new Process();
-		addSourceProcess.StartInfo.FileName = "dotnet";
-		addSourceProcess.StartInfo.Arguments = $"nuget add source {feedUrl} -n \"{feedName}\" --configfile \"{Path.GetFullPath(configPath)}\"";
-		addSourceProcess.StartInfo.UseShellExecute = false;
-		addSourceProcess.Start();
-		await addSourceProcess.WaitForExitAsync(cancellationToken);
+		// Check if the source already exists to make this idempotent
+		var (exitCode, output) = await RunDotnetWithOutputAsync(
+			$"nuget list source --configfile \"{fullPath}\"", cancellationToken);
+
+		if (exitCode == 0 && output.Contains(feedName, StringComparison.OrdinalIgnoreCase))
+		{
+			// Source already exists — update it instead
+			await RunDotnetAsync(
+				$"nuget update source \"{feedName}\" --source {feedUrl} --configfile \"{fullPath}\"",
+				cancellationToken);
+		}
+		else
+		{
+			await RunDotnetAsync(
+				$"nuget add source {feedUrl} -n \"{feedName}\" --configfile \"{fullPath}\"",
+				cancellationToken);
+		}
 	}
 
-	static async Task<string?> ResolveMauiVersionFromWorkloadAsync(CancellationToken cancellationToken)
+	static async Task RunDotnetAsync(string arguments, CancellationToken cancellationToken)
 	{
 		using var process = new Process();
 		process.StartInfo.FileName = "dotnet";
-		process.StartInfo.Arguments = "workload --info";
+		process.StartInfo.Arguments = arguments;
+		process.StartInfo.UseShellExecute = false;
+		process.StartInfo.RedirectStandardError = true;
+		process.Start();
+
+		var stderr = await process.StandardError.ReadToEndAsync(cancellationToken);
+		await process.WaitForExitAsync(cancellationToken);
+
+		if (process.ExitCode != 0)
+		{
+			throw new InvalidOperationException(
+				$"'dotnet {arguments}' failed with exit code {process.ExitCode}: {stderr.Trim()}");
+		}
+	}
+
+	static async Task<(int ExitCode, string Output)> RunDotnetWithOutputAsync(string arguments, CancellationToken cancellationToken)
+	{
+		using var process = new Process();
+		process.StartInfo.FileName = "dotnet";
+		process.StartInfo.Arguments = arguments;
 		process.StartInfo.UseShellExecute = false;
 		process.StartInfo.RedirectStandardOutput = true;
 		process.Start();
@@ -188,7 +232,14 @@ public partial class ProjectVersionService : IProjectVersionService
 		var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
 		await process.WaitForExitAsync(cancellationToken);
 
-		if (!output.Contains("[maui]", StringComparison.OrdinalIgnoreCase))
+		return (process.ExitCode, output);
+	}
+
+	static async Task<string?> ResolveMauiVersionFromWorkloadAsync(CancellationToken cancellationToken)
+	{
+		var (exitCode, output) = await RunDotnetWithOutputAsync("workload --info", cancellationToken);
+
+		if (exitCode != 0 || !output.Contains("[maui]", StringComparison.OrdinalIgnoreCase))
 			return null;
 
 		var mauiSection = output[output.IndexOf("[maui]", StringComparison.OrdinalIgnoreCase)..];

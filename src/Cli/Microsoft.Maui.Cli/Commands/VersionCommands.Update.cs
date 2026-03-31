@@ -5,6 +5,7 @@ using System.CommandLine;
 using System.CommandLine.Parsing;
 using Microsoft.Maui.Cli.Output;
 using Microsoft.Maui.Cli.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Maui.Cli.Commands;
 
@@ -78,8 +79,10 @@ public static partial class VersionCommands
 				return 1;
 			}
 
-			var projectService = new ProjectVersionService();
-			var nugetService = new NuGetVersionService();
+			var projectService = Program.Services.GetService<IProjectVersionService>()
+				?? new ProjectVersionService();
+			var nugetService = Program.Services.GetService<INuGetVersionService>()
+				?? new NuGetVersionService();
 
 			// Discover project file if not specified
 			if (string.IsNullOrEmpty(projectPath))
@@ -100,6 +103,9 @@ public static partial class VersionCommands
 			}
 
 			formatter.WriteInfo($"Found project: {projectPath}");
+
+			// Read current project state to know what packages exist
+			var currentInfo = await projectService.GetInstalledVersionAsync(projectPath, cancellationToken);
 
 			string versionToInstall;
 			string? feedUrl = null;
@@ -135,8 +141,8 @@ public static partial class VersionCommands
 			if (dryRun)
 			{
 				formatter.WriteInfo("[dry-run] Would update MAUI packages to: " + versionToInstall);
-				if (createNuGetConfig)
-					formatter.WriteInfo("[dry-run] Would create/update NuGet.config with feed: " + (feedUrl ?? "(default)"));
+				if (createNuGetConfig && feedUrl is not null)
+					formatter.WriteInfo("[dry-run] Would create/update NuGet.config with feed: " + feedUrl);
 				return 0;
 			}
 
@@ -146,7 +152,9 @@ public static partial class VersionCommands
 				{
 					// Use dotnet add package for nightly (handles feed source)
 					formatter.WriteProgress("Installing from nightly feed...");
-					await projectService.InstallFromFeedAsync(projectPath, versionToInstall, feedUrl, cancellationToken);
+					await projectService.InstallFromFeedAsync(
+						projectPath, versionToInstall, feedUrl,
+						currentInfo.HasCompatibilityReference, cancellationToken);
 				}
 				else
 				{

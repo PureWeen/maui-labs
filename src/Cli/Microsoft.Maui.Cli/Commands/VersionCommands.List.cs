@@ -5,6 +5,7 @@ using System.CommandLine;
 using System.CommandLine.Parsing;
 using Microsoft.Maui.Cli.Output;
 using Microsoft.Maui.Cli.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Maui.Cli.Commands;
 
@@ -44,11 +45,29 @@ public static partial class VersionCommands
 			var includePrerelease = parseResult.GetValue(prereleaseOption);
 			var take = parseResult.GetValue(takeOption);
 
+			// Validate --channel
+			if (!channelStr.Equals("stable", StringComparison.OrdinalIgnoreCase) &&
+				!channelStr.Equals("nightly", StringComparison.OrdinalIgnoreCase))
+			{
+				formatter.WriteError(new InvalidOperationException(
+					$"Invalid channel '{channelStr}'. Valid values: stable, nightly"));
+				return 1;
+			}
+
+			// Validate --take
+			if (take <= 0)
+			{
+				formatter.WriteError(new InvalidOperationException(
+					"--take must be a positive number."));
+				return 1;
+			}
+
 			var channel = channelStr.Equals("nightly", StringComparison.OrdinalIgnoreCase)
 				? ReleaseChannel.Nightly
 				: ReleaseChannel.Stable;
 
-			var nugetService = new NuGetVersionService();
+			var nugetService = Program.Services.GetService<INuGetVersionService>()
+				?? new NuGetVersionService();
 
 			formatter.WriteInfo($"Querying {channel} feed for Microsoft.Maui.Controls...");
 

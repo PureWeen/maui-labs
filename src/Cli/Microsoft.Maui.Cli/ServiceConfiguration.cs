@@ -53,7 +53,9 @@ public static class ServiceConfiguration
 		IAndroidProvider? androidProvider = null,
 		IJdkManager? jdkManager = null,
 		IDoctorService? doctorService = null,
-		IDeviceManager? deviceManager = null)
+		IDeviceManager? deviceManager = null,
+		INuGetVersionService? nugetVersionService = null,
+		IProjectVersionService? projectVersionService = null)
 	{
 		var services = new ServiceCollection();
 
@@ -77,6 +79,16 @@ public static class ServiceConfiguration
 			services.AddSingleton(deviceManager);
 		else
 			services.AddSingleton<IDeviceManager, DeviceManager>();
+
+		if (nugetVersionService != null)
+			services.AddSingleton(nugetVersionService);
+		else
+			services.AddSingleton<INuGetVersionService, NuGetVersionService>();
+
+		if (projectVersionService != null)
+			services.AddSingleton(projectVersionService);
+		else
+			services.AddSingleton<IProjectVersionService, ProjectVersionService>();
 
 		return services.BuildServiceProvider();
 	}

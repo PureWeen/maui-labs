@@ -5,6 +5,7 @@ using System.CommandLine;
 using System.CommandLine.Parsing;
 using Microsoft.Maui.Cli.Output;
 using Microsoft.Maui.Cli.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Maui.Cli.Commands;
 
@@ -28,7 +29,8 @@ public static partial class VersionCommands
 			var useJson = parseResult.GetValue(GlobalOptions.JsonOption);
 			var projectPath = parseResult.GetValue(projectOption);
 
-			var projectService = new ProjectVersionService();
+			var projectService = Program.Services.GetService(typeof(IProjectVersionService)) as IProjectVersionService
+				?? new ProjectVersionService();
 
 			// Discover project file if not specified
 			if (string.IsNullOrEmpty(projectPath))
@@ -52,7 +54,7 @@ public static partial class VersionCommands
 
 			var versionInfo = await projectService.GetInstalledVersionAsync(projectPath, cancellationToken);
 
-			if (versionInfo.ControlsVersion is null && versionInfo.CompatibilityVersion is null)
+			if (!versionInfo.HasControlsReference && !versionInfo.HasCompatibilityReference)
 			{
 				formatter.WriteError(new InvalidOperationException(
 					$"No .NET MAUI package references found in {Path.GetFileName(projectPath)}. Is this a .NET MAUI project?"));
@@ -67,22 +69,28 @@ public static partial class VersionCommands
 					controlsVersion = versionInfo.ControlsVersion,
 					compatibilityVersion = versionInfo.CompatibilityVersion,
 					resolvedVersion = versionInfo.ResolvedVersion,
+					implicitVersioning = versionInfo.HasControlsReference && versionInfo.ControlsVersion is null,
 					versionMismatch = versionInfo.ControlsVersion != versionInfo.CompatibilityVersion
-						&& versionInfo.CompatibilityVersion is not null
+						&& versionInfo.HasCompatibilityReference && versionInfo.ControlsVersion is not null
 				});
 			}
 			else
 			{
-				formatter.WriteInfo($"Microsoft.Maui.Controls: {versionInfo.ControlsVersion ?? "(not found)"}");
+				if (versionInfo.ControlsVersion is not null)
+					formatter.WriteInfo($"Microsoft.Maui.Controls: {versionInfo.ControlsVersion}");
+				else if (versionInfo.HasControlsReference)
+					formatter.WriteInfo("Microsoft.Maui.Controls: (implicit — version from central package management)");
 
 				if (versionInfo.CompatibilityVersion is not null)
 					formatter.WriteInfo($"Microsoft.Maui.Controls.Compatibility: {versionInfo.CompatibilityVersion}");
+				else if (versionInfo.HasCompatibilityReference)
+					formatter.WriteInfo("Microsoft.Maui.Controls.Compatibility: (implicit)");
 
 				if (versionInfo.ResolvedVersion is not null)
-					formatter.WriteInfo($"$(MauiVersion) resolves to: {versionInfo.ResolvedVersion}");
+					formatter.WriteInfo($"Resolved workload version: {versionInfo.ResolvedVersion}");
 
-				if (versionInfo.ControlsVersion != versionInfo.CompatibilityVersion
-					&& versionInfo.CompatibilityVersion is not null)
+				if (versionInfo.ControlsVersion is not null && versionInfo.CompatibilityVersion is not null
+					&& versionInfo.ControlsVersion != versionInfo.CompatibilityVersion)
 				{
 					formatter.WriteWarning(
 						"Mixed versions detected for .NET MAUI packages. This could cause unexpected results.");
