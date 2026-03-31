@@ -85,7 +85,7 @@ public class Program
 		// Top-level commands (per spec)
 		rootCommand.Add(DoctorCommand.Create());
 		rootCommand.Add(DeviceCommand.Create());
-		rootCommand.Add(VersionCommand.Create());
+		rootCommand.Add(VersionCommands.Create());
 
 		// Platform-specific command groups
 		rootCommand.Add(AndroidCommands.Create());

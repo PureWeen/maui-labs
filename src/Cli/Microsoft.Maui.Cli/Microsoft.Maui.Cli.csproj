@@ -23,6 +23,7 @@
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="Spectre.Console" />
     <PackageReference Include="Websocket.Client" />
+    <PackageReference Include="NuGet.Protocol" />
     <PackageReference Include="Xamarin.Android.Tools.AndroidSdk" />
     <PackageReference Include="XenoAtom.Terminal.UI" />
   </ItemGroup>

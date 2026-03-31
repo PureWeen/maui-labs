@@ -38,6 +38,7 @@
   <!-- MAUI Cli Tool dependencies -->
   <ItemGroup Label="Cli">
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsDependencyInjectionVersion)" />
+    <PackageVersion Include="NuGet.Protocol" Version="$(NuGetProtocolVersion)" />
     <PackageVersion Include="Xamarin.Android.Tools.AndroidSdk" Version="$(XamarinAndroidToolsAndroidSdkVersion)" />
   </ItemGroup>
 

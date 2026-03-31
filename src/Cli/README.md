@@ -28,7 +28,29 @@ maui doctor
 maui device list
 ```
 
-### 3. Set up Android development
+### 3. Manage .NET MAUI versions
+
+```bash
+# Check installed MAUI version in your project
+maui version check
+maui version check --project ./src/MyApp/MyApp.csproj
+
+# List available versions from NuGet
+maui version list
+maui version list --channel nightly
+maui version list --prerelease --take 20
+
+# Update to latest stable
+maui version update --latest
+
+# Switch to nightly builds
+maui version update --latest-nightly --nuget-config
+
+# Install a specific version (e.g. from a PR build)
+maui version update --version 10.0.0-preview.5.25180.1
+```
+
+### 4. Set up Android development
 
 ```bash
 # Full interactive Android setup (JDK + SDK + emulator)
@@ -52,7 +74,10 @@ maui android emulator start --name MyEmulator
 |---------|-------------|
 | `maui doctor` | Run environment diagnostics and auto-fix issues |
 | `maui device list` | List connected devices and emulators |
-| `maui version` | Display version information |
+| `maui version` | Display CLI version information |
+| `maui version check` | Check installed MAUI version in a project |
+| `maui version list` | List available .NET MAUI versions from NuGet feeds |
+| `maui version update` | Update MAUI package versions (stable, nightly, or specific) |
 | `maui android install` | Full interactive Android environment setup |
 | `maui android sdk list` | List available and installed Android SDK packages |
 | `maui android sdk install` | Install Android SDK packages |

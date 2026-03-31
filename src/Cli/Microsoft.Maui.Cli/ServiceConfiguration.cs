@@ -37,6 +37,10 @@ public static class ServiceConfiguration
 		services.AddSingleton<IDoctorService, DoctorService>();
 		services.AddSingleton<IDeviceManager, DeviceManager>();
 
+		// Version services
+		services.AddSingleton<INuGetVersionService, NuGetVersionService>();
+		services.AddSingleton<IProjectVersionService, ProjectVersionService>();
+
 		// Output formatters (transient - created per request with specific config)
 		services.AddTransient<JsonOutputFormatter>();
 		services.AddTransient<SpectreOutputFormatter>();
