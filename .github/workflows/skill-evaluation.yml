@@ -107,7 +107,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           PERMISSION=$(gh api "repos/${{ github.repository }}/collaborators/${{ github.event.comment.user.login }}/permission" \
-            --jq '.permission')
+            --jq '.permission' 2>/dev/null || echo "none")
 
           if [[ "$PERMISSION" == "admin" || "$PERMISSION" == "maintain" || "$PERMISSION" == "write" ]]; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
@@ -163,21 +163,18 @@ jobs:
       - name: Discover skills to evaluate
         id: discover
         run: |
-          # Find all plugins with both skills and tests
+          # Find all plugins with both skills and tests (one entry per plugin)
           ENTRIES="[]"
           for plugin_dir in plugins/*/; do
             plugin_name=$(basename "$plugin_dir")
             skills_path="$plugin_dir/skills"
             tests_dir="tests/$plugin_name"
 
-            if [ -d "$skills_path" ] && [ -d "$tests_dir" ]; then
-              for skill_dir in "$tests_dir"/*/; do
-                [ -f "$skill_dir/eval.yaml" ] || continue
-                skill_name=$(basename "$skill_dir")
-                ENTRIES=$(echo "$ENTRIES" | jq --arg name "$skill_name" --arg plugin "$plugin_name" \
-                  --arg skills_path "$skills_path" \
-                  '. + [{"name": $name, "plugin": $plugin, "skills_path": $skills_path}]')
-              done
+            if [ -d "$skills_path" ] && [ -d "$tests_dir" ] && \
+               find "$tests_dir" -name 'eval.yaml' -print -quit | grep -q .; then
+              ENTRIES=$(echo "$ENTRIES" | jq --arg plugin "$plugin_name" \
+                --arg skills_path "$skills_path" \
+                '. + [{"plugin": $plugin, "skills_path": $skills_path}]')
             fi
           done
 
@@ -194,23 +191,23 @@ jobs:
           mkdir -p "$RESULTS_DIR"
 
           EVAL_FAILED=0
-          echo "$ENTRIES" | jq -c '.[]' | while read -r entry; do
-            name=$(echo "$entry" | jq -r '.name')
+          while read -r entry; do
+            [ -z "$entry" ] && continue
             plugin=$(echo "$entry" | jq -r '.plugin')
             skills_path=$(echo "$entry" | jq -r '.skills_path')
 
-            echo "=== Evaluating: $name ==="
+            echo "=== Evaluating plugin: $plugin ==="
             if ! /tmp/skill-validator/bin/skill-validator evaluate \
               --verdict-warn-only \
-              --results-dir "$RESULTS_DIR/$name" \
+              --results-dir "$RESULTS_DIR/$plugin" \
               --reporter console --reporter json --reporter markdown \
               --runs 3 \
               --tests-dir "./tests/$plugin" \
               "./$skills_path"; then
-              echo "::warning::Evaluation failed for $name"
+              echo "::warning::Evaluation failed for $plugin"
               EVAL_FAILED=1
             fi
-          done
+          done < <(echo "$ENTRIES" | jq -c '.[]')
           exit $EVAL_FAILED
 
       - name: Post results to PR
