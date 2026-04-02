@@ -1,0 +1,18 @@
+{
+  "name": "dotnet-maui-labs-skills",
+  "owner": {
+    "name": ".NET MAUI Team"
+  },
+  "plugins": [
+    {
+      "name": "dotnet-maui-devflow",
+      "source": "./plugins/dotnet-maui-devflow",
+      "description": "Skills for .NET MAUI DevFlow automation: agent connectivity, visual tree inspection, screenshots, and multiplatform debugging."
+    },
+    {
+      "name": "dotnet-maui-dev",
+      "source": "./plugins/dotnet-maui-dev",
+      "description": "Skills for .NET MAUI development: profiling, accessibility, UI design patterns, and best practices."
+    }
+  ]
+}
