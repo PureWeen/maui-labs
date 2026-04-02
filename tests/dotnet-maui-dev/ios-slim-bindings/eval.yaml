@@ -1,10 +1,21 @@
 scenarios:
   - name: "Create iOS slim binding with CocoaPods dependency"
+    setup:
+      files:
+        - path: "MyMauiApp/MyMauiApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFrameworks>net10.0-android;net10.0-ios</TargetFrameworks>
+                <OutputType>Exe</OutputType>
+                <UseMaui>true</UseMaui>
+              </PropertyGroup>
+            </Project>
     prompt: |
-      I want to use the Lottie iOS animation library (distributed via CocoaPods
-      as 'lottie-ios') in my .NET MAUI app. I only need to play animations from
-      JSON files. Walk me through creating a slim binding — what's the project
-      structure, how do I set up the Xcode project, and how do I configure CocoaPods?
+      I have a .NET MAUI app in MyMauiApp/. I want to use the Lottie iOS animation
+      library (distributed via CocoaPods as 'lottie-ios') and I only need to play
+      animations from JSON files. Create a slim iOS binding project in LottieBinding/
+      with the XcodeGen project.yml, Podfile, Swift wrapper, and C# binding project.
     assertions:
       - type: "output_contains"
         value: "XcodeGen"
@@ -14,6 +25,13 @@ scenarios:
         pattern: "@objc|NSObject"
       - type: "output_matches"
         pattern: "ApiDefinition\\.cs|BaseType"
+      - type: "file_exists"
+        path: "LottieBinding/project.yml"
+      - type: "file_exists"
+        path: "LottieBinding/Podfile"
+      - type: "file_contains"
+        path: "LottieBinding/Podfile"
+        value: "lottie-ios"
     rubric:
       - "Uses XcodeGen (project.yml) to generate the Xcode project rather than manual Xcode project creation"
       - "Configures CocoaPods with use_frameworks! :linkage => :static for static linking"
@@ -23,33 +41,42 @@ scenarios:
     timeout: 240
 
   - name: "Fix unrecognized selector runtime crash in iOS binding"
+    setup:
+      files:
+        - path: "MyBinding/swift/DotnetMyBinding.swift"
+          content: |
+            import Foundation
+
+            @objc(DotnetMyBinding)
+            public class DotnetMyBinding: NSObject {
+                @objc
+                public func initialize(apiKey: String) -> Bool {
+                    return true
+                }
+            }
+        - path: "MyBinding/ApiDefinition.cs"
+          content: |
+            using Foundation;
+            using ObjCRuntime;
+
+            namespace MyBinding;
+
+            [BaseType(typeof(NSObject))]
+            interface DotnetMyBinding {
+                [Export("initializeWithApiKey:")]
+                bool Initialize(string apiKey);
+            }
     prompt: |
-      My iOS slim binding project builds successfully but crashes at runtime with:
+      My iOS slim binding project at MyBinding/ builds successfully but crashes at runtime with:
 
       ```
       Objective-C exception thrown. Name: NSInvalidArgumentException
       Reason: -[DotnetMyBinding initializeWithApiKey:]: unrecognized selector sent to instance
       ```
 
-      My Swift wrapper has:
-      ```swift
-      @objc(DotnetMyBinding)
-      public class DotnetMyBinding: NSObject {
-          @objc
-          public func initialize(apiKey: String) -> Bool { ... }
-      }
-      ```
-
-      And my ApiDefinition.cs has:
-      ```csharp
-      [BaseType(typeof(NSObject))]
-      interface DotnetMyBinding {
-          [Export("initializeWithApiKey:")]
-          bool Initialize(string apiKey);
-      }
-      ```
-
-      What's wrong with my binding?
+      The Swift wrapper is at MyBinding/swift/DotnetMyBinding.swift and the binding
+      definition is at MyBinding/ApiDefinition.cs. Fix the code to resolve this
+      selector mismatch.
     assertions:
       - type: "output_matches"
         pattern: "(?i)selector.*mismatch|mismatch.*selector|Export.*doesn.t match|@objc.*selector"
@@ -57,6 +84,9 @@ scenarios:
         pattern: "initializeWithApiKey:"
       - type: "output_matches"
         pattern: "@objc\\(.*initializeWithApiKey"
+      - type: "file_contains"
+        path: "MyBinding/swift/DotnetMyBinding.swift"
+        value: "initializeWithApiKey"
     rubric:
       - "Identifies that the @objc annotation is missing an explicit selector, so Swift generated a different one"
       - "Explains that Swift auto-generates the selector as initializeWithApiKey: but the @objc without explicit selector may produce initializeApiKey: or similar"
