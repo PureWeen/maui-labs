@@ -7,7 +7,7 @@ Distributable agent skills for .NET MAUI development. Each plugin is independent
 | Plugin | Skills | Description |
 |--------|--------|-------------|
 | [dotnet-maui-devflow](dotnet-maui-devflow/) | [devflow-connect](dotnet-maui-devflow/skills/devflow-connect/) | DevFlow automation — agent connectivity, visual tree inspection, screenshots, app interactions. Requires the `maui` CLI and DevFlow agent packages. |
-| [dotnet-maui-dev](dotnet-maui-dev/) | _(accepting contributions)_ | General MAUI development — profiling, accessibility, native bindings, platform guidance. |
+| [dotnet-maui-dev](dotnet-maui-dev/) | [android-slim-bindings](dotnet-maui-dev/skills/android-slim-bindings/), [ios-slim-bindings](dotnet-maui-dev/skills/ios-slim-bindings/), [dotnet-workload-info](dotnet-maui-dev/skills/dotnet-workload-info/) | General MAUI development — native bindings, workload discovery, and more. |
 
 ## Installation
 
